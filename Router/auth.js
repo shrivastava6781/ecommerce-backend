@@ -81,10 +81,10 @@ router.post("/forgot-password", async (req, res) => {
 
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
-    console.log("CLIENT_URL", process.env.CLIENT_URL)
+    console.log("CLIENT_URL", process.env.CLIENT_URL, process.env.EMAIL_USER, process.env.EMAIL_PASS)
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
+      host: "74.125.24.108",
       port: 587,
       secure: false,
       family: 4, // force IPv4
