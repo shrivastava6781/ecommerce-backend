@@ -4,6 +4,9 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../Models/user");
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+
 
 // Signup
 router.post("/signup", async (req, res) => {
@@ -58,6 +61,98 @@ router.post("/login", async (req, res) => {
   } 
   catch (error) {
     res.status(500).json({ message: "Server error", error });
+  }
+});
+
+// forgot password
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found"
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    user.resetPasswordToken = resetToken;
+
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    await user.save();
+    console.log("CLIENT_URL", process.env.CLIENT_URL)
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    const transporter =
+      nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: "TRNZY Password Reset",
+      html: `
+        <h2>Password Reset</h2>
+        <p>Click below link:</p>
+
+        <a href="${resetUrl}">
+          Reset Password
+        </a>
+      `,
+    });
+    res.status(200).json({
+      message: "Reset link sent"
+    });
+
+  }
+  catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "Server Error"
+    });
+  }
+});
+
+//Reset Passwrod
+router.post("/reset-password/:token", async (req, res) => {
+
+  const { token } = req.params;
+  const { password } = req.body;
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpire: {
+        $gt: Date.now()
+      }
+    });
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid or expired token"
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Password reset successful"
+    });
+
+  }
+  catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "Server Error"
+    });
   }
 });
 
