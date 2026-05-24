@@ -1,0 +1,51 @@
+const express = require("express");
+const router = express.Router();
+const Order = require("../Models/orderSchema");
+
+
+// 🔥 Save Order after successful payment
+router.post("/order", async (req, res) => {
+  try {
+    const { userId, items, address, amount, paymentId } = req.body;
+
+    const newOrder = new Order({
+      userId,
+      items,
+      address,
+      amount,
+      paymentId,
+      orderStatus: "Paid", // since payment success
+    });
+
+    await newOrder.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Order placed successfully",
+      order: newOrder,
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: "Error saving order",
+    });
+  }
+});
+
+
+// 🔥 Get Orders of User (optional but useful)
+router.get("/order/:userId", async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.params.userId })
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, orders });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ success: false });
+  }
+});
+
+module.exports = router;
