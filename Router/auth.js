@@ -83,14 +83,15 @@ router.post("/forgot-password", async (req, res) => {
     await user.save();
     console.log("CLIENT_URL", process.env.CLIENT_URL)
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-    const transporter =
-      nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true, // true for 465
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
