@@ -4,8 +4,9 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../Models/user");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const crypto = require("crypto");
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 // Signup
@@ -67,7 +68,6 @@ router.post("/login", async (req, res) => {
 // forgot password
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
-
   try {
     const user = await User.findOne({ email });
     if (!user) {
@@ -75,40 +75,55 @@ router.post("/forgot-password", async (req, res) => {
         message: "User not found"
       });
     }
-
+    // Generate Token
     const resetToken = crypto.randomBytes(32).toString("hex");
     user.resetPasswordToken = resetToken;
-
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
-    console.log("CLIENT_URL", process.env.CLIENT_URL, process.env.EMAIL_USER, process.env.EMAIL_PASS)
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      auth: {
-        user: 'prospectdigitals@gmail.com',
-        pass: 'lmmh kioy ieiw plff'
-      }
-    });
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    // Reset URL
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    // Send Email
+    await resend.emails.send({
+      from: "onboarding@resend.dev",
       to: user.email,
       subject: "TRNZY Password Reset",
       html: `
-        <h2>Password Reset</h2>
-        <p>Click below link:</p>
+        <div style="
+          font-family: Arial;
+          padding: 20px;
+        ">
 
-        <a href="${resetUrl}">
-          Reset Password
-        </a>
-      `,
+          <h1>TRNZY</h1>
+
+          <h2>Password Reset</h2>
+
+          <p>
+            Click below button to reset your password
+          </p>
+
+          <a
+            href="${resetUrl}"
+            style="
+              display:inline-block;
+              padding:12px 20px;
+              background:#d9ff00;
+              color:black;
+              text-decoration:none;
+              border-radius:8px;
+              font-weight:bold;
+            "
+          >
+            Reset Password
+          </a>
+
+        </div>
+      `
     });
     res.status(200).json({
-      message: "Reset link sent"
+      message: "Reset link sent successfully"
     });
-
   }
   catch (error) {
     console.log(error);
