@@ -5,7 +5,7 @@ const upload = require('../middlewares/multer');
 
 router.post('/products', upload.single('image'), async (req, res) => {
     try {   
-        const { name, price, discount, rating, description } = req.body;
+        const { name, price, discount, rating, description, type ,category } = req.body;
 
         const newProduct = await Product.create({
             name, 
@@ -13,6 +13,8 @@ router.post('/products', upload.single('image'), async (req, res) => {
             discount, 
             rating, 
             description,
+            type ,
+            category,
             image: req.file ? req.file.path : null,
         });
 

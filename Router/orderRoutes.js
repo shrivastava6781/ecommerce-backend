@@ -2,19 +2,46 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../Models/orderSchema");
 
-
-// 🔥 Save Order after successful payment
+// Save Order
 router.post("/order", async (req, res) => {
   try {
-    const { userId, items, address, amount, paymentId } = req.body;
-
-    const newOrder = new Order({
+    const {
       userId,
       items,
       address,
       amount,
       paymentId,
-      orderStatus: "Paid", // since payment success
+    } = req.body;
+
+    const formattedItems = items.map((item) => ({
+      // Common
+      productType: item.productType || "normal",
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      image: item.image,
+
+      // Normal Product
+      productId: item.productId,
+
+      // Custom Product
+      baseProductId: item.baseProductId,
+      printDesignId: item.printDesignId,
+      uploadedDesign: item.uploadedDesign,
+      previewImage: item.previewImage,
+      size: item.size,
+      color: item.color,
+      printPosition: item.printPosition,
+      designConfig: item.designConfig,
+    }));
+
+    const newOrder = new Order({
+      userId,
+      items: formattedItems,
+      address,
+      amount,
+      paymentId,
+      orderStatus: "Paid",
     });
 
     await newOrder.save();

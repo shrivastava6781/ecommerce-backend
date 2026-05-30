@@ -9,14 +9,56 @@ const orderSchema = new mongoose.Schema(
 
     items: [
       {
+        // NORMAL PRODUCT
         productId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
         },
+
+        // NORMAL OR CUSTOM
+        productType: {
+          type: String,
+          enum: ["normal", "custom"],
+          default: "normal",
+        },
+
+        // COMMON
         name: String,
         price: Number,
         quantity: Number,
         image: String,
+
+        // CUSTOM PRODUCT
+        baseProductId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+
+        printDesignId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+
+        uploadedDesign: String,
+
+        previewImage: String,
+
+        size: String,
+
+        color: String,
+
+        printPosition: {
+          type: String,
+          enum: ["front", "back", "leftSleeve", "rightSleeve"],
+          default: "front",
+        },
+
+        designConfig: {
+          x: Number,
+          y: Number,
+          width: Number,
+          rotation: Number,
+        },
       },
     ],
 

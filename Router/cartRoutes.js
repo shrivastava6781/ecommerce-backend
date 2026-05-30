@@ -9,75 +9,129 @@ const Cart = require('../Models/Cart'); // Cart model
 router.post('/add/cart/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { productId, quantity } = req.body;
+    const { productId, quantity, productType, baseProductId, printDesignId, previewImage, designConfig, printPosition, size, color } = req.body;
 
-    // 1. Find product
-    const productData = await Product.findById(productId);
+    if (productType !== "custom") {
+      const productData = await Product.findById(productId);
 
-    if (!productData) {
-      return res.status(404).json({ message: "Product Not Found" });
-    }
-
-    // 2. Find cart
-    let cartItems = await Cart.findOne({ userId });
-
-    if (cartItems) {
-      // 3. Check if product exists
-      const itemIndex = cartItems.items.findIndex(
-        (item) => item.productId.toString() === productId
-      );
-
-      if (itemIndex > -1) {
-        // ✅ Update quantity
-        cartItems.items[itemIndex].quantity += quantity;
-      } else {
-        // ➕ Add new product
-        cartItems.items.push({
-          productId,
-          name: productData.name,
-          price: productData.price,
-          quantity,
-          image: productData.image,
+      if (!productData) {
+        return res.status(404).json({
+          message: "Product Not Found"
         });
       }
 
-      // 💰 Recalculate total
-      cartItems.totalAmount = cartItems.items.reduce(
-        (acc, item) => acc + item.price * item.quantity,
-        0
-      );
+      let cartItems = await Cart.findOne({ userId });
 
-      await cartItems.save();
+      if (cartItems) {
+        const itemIndex = cartItems.items.findIndex(
+          (item) => item.productId.toString() === productId
+        );
 
-      return res.status(200).json({
-        message: "Cart updated successfully",
-        cart: cartItems,
-      });
-
-    } else {
-      // 🆕 Create new cart
-      const newCartData = await Cart.create({
-        userId,
-        items: [
-          {
+        if (itemIndex > -1) {
+          cartItems.items[itemIndex].quantity += quantity;
+        } 
+        else {
+          cartItems.items.push({
             productId,
+            productType: "normal",
             name: productData.name,
             price: productData.price,
             quantity,
             image: productData.image,
-          },
-        ],
-        totalAmount: productData.price * quantity,
-      });
+          });
+        }
 
-      return res.status(200).json({
-        message: "Cart created successfully",
-        cart: newCartData,
+        // 💰 Recalculate total
+        cartItems.totalAmount = cartItems.items.reduce(
+          (acc, item) => acc + item.price * item.quantity,
+          0
+        );
+
+        await cartItems.save();
+
+        return res.status(200).json({
+          message: "Cart updated successfully",
+          cart: cartItems,
+        });
+
+      } 
+      else {
+        const newCartData = await Cart.create({
+          userId,
+          items: [
+            {
+              productId,
+              productType: "normal",
+              name: productData.name,
+              price: productData.price,
+              quantity,
+              image: productData.image,
+            },
+          ],
+          totalAmount: productData.price * quantity,
+        });
+
+        return res.status(200).json({
+          message: "Cart created successfully",
+          cart: newCartData,
+        });
+      }
+    }
+
+    // CUSTOM PRODUCT
+    const baseProduct = await Product.findById(baseProductId);
+    const designProduct = await Product.findById(printDesignId);
+    if (!baseProduct || !designProduct) {
+      return res.status(404).json({
+        message: "Custom Product Not Found"
       });
     }
 
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    const finalPrice = baseProduct.price + designProduct.price;
+    let cartItems = await Cart.findOne({ userId });
+    const customItem = {
+      productType: "custom",
+      name: `${baseProduct.name} Custom`,
+      price: finalPrice,
+      quantity,
+      image: baseProduct.image,
+      baseProductId,
+      printDesignId,
+      previewImage,
+      designConfig,
+      printPosition,
+      size,
+      color,
+    };
+    if (cartItems) {
+      cartItems.items.push(customItem);
+      cartItems.totalAmount = cartItems.items.reduce(
+        (acc, item) => acc + item.price * item.quantity,
+        0
+      );
+      await cartItems.save();
+      return res.status(200).json({
+        message: "Custom Product Added",
+        cart: cartItems,
+      });
+    } 
+    else {
+      const newCartData = await Cart.create({
+        userId,
+        items: [customItem],
+        totalAmount: finalPrice * quantity,
+      });
+      return res.status(200).json({
+        message: "Custom Cart Created",
+        cart: newCartData,
+      });
+    }
+  } 
+  catch (err) {
+    res.status(500).json({
+      message: 'Server error',
+      error: err
+    });
   }
 });
 
@@ -107,7 +161,7 @@ router.get("/cart/:userId", async (req, res) => {
 
 router.put("/cart/update", async (req, res) => {
   try {
-    const {  userId, productId, quantity } = req.body;
+    const {  userId, cartItemId, quantity } = req.body;
 
     const cartData = await Cart.findOne({ userId });
 
@@ -115,11 +169,12 @@ router.put("/cart/update", async (req, res) => {
       return res.status(404).json({ message: "Cart not found" });
     }
     const itemIndex = cartData.items.findIndex((item)=>
-      item.productId.toString() == productId
+       item._id.toString() == cartItemId
     )
     
-    if(itemIndex == -1){
-      return res.status(404).json({ message: "Product not in cart" });
+    if(itemIndex == -1) {
+      return res.status(404).json({ message: "Item not found",
+      });
     }
     // ❗ If quantity = 0 → remove item
     if (quantity <= 0) {
@@ -138,7 +193,7 @@ router.put("/cart/update", async (req, res) => {
 
   } catch (error) {
     res.status(500).json({
-      message: "Failed to fetch cart",
+      message: "Failed to update cart",
       error: error.message,
     });
   }
@@ -146,20 +201,17 @@ router.put("/cart/update", async (req, res) => {
 
 router.delete("/cart/remove", async (req, res) => {
   try {
-    const { userId, productId } = req.body;
+    const { userId, cartItemId } = req.body;
 
-    let cartData = await Cart.findOne({ userId });
+    const cartData = await Cart.findOne({ userId });
 
     if (!cartData) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    console.log(cartData.items)
     cartData.items = cartData.items.filter(
-      (item) => item.productId.toString() !== productId
+      (item) => item._id.toString() !== cartItemId
     );
-    console.log(cartData.items)
-
 
     // 💰 Recalculate total
     cartData.totalAmount = cartData.items.reduce(
@@ -175,7 +227,10 @@ router.delete("/cart/remove", async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 });
 
@@ -204,7 +259,8 @@ router.delete("/cart/clear/:userId", async (req, res) => {
       cartData,
     });
 
-  } catch (error) {
+  } 
+  catch (error) {
     res.status(500).json({
       message: "Failed to clear cart",
       error: error.message,
