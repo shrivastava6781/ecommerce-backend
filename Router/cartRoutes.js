@@ -23,9 +23,12 @@ router.post('/add/cart/:userId', async (req, res) => {
       let cartItems = await Cart.findOne({ userId });
 
       if (cartItems) {
-        const itemIndex = cartItems.items.findIndex(
-          (item) => item.productId.toString() === productId
-        );
+        const itemIndex = cartItems.items.findIndex((item) => {
+          return (
+            item.productId &&
+            item.productId.toString() === productId
+          );
+        });
 
         if (itemIndex > -1) {
           cartItems.items[itemIndex].quantity += quantity;
@@ -128,9 +131,9 @@ router.post('/add/cart/:userId', async (req, res) => {
     }
   } 
   catch (err) {
-    res.status(500).json({
-      message: 'Server error',
-      error: err
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message,
     });
   }
 });
